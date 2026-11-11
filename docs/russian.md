@@ -3,7 +3,8 @@
 Sing accepts Cyrillic lyrics. A word with a Cyrillic letter is read by
 `crates/chimera/src/phonetics/russian.rs`, a front end on the lyrics router
 ([language-front-ends.md](language-front-ends.md)), so a line can mix it with English and Korean.
-There are no new sounds: Russian is mapped onto the existing inventory.
+Russian is mapped onto the existing inventory, with the engine's palatalization for the soft
+consonants; the only new entries are two taps for р.
 
 Speak doesn't read Russian yet. The reader already has the speech rules (`word_before` with
 `reduce`: vowel reduction, Russian vowel lengths, prepositions voiced by the next word), and they
@@ -32,14 +33,33 @@ front-end list as Sing.
 | Spelling conventions | -ого, -его and его, сего́дня → /v/; что, коне́чно → /ʂ/; сч, зч, жч → щ; silent т д л в in стн, стл, здн, рдц, лнц, вств; -тся, -ться → /tsa/ |
 | Doubled letters | one consonant, half again as long between vowels (ва́нна), plain before a consonant (ру́сский) |
 
+## Soft consonants
+
+A soft consonant is the plain one with `Segment.palatalized` set (IPA ʲ): the planner raises and
+fronts the tongue body under it, towards /j/, holds it until the voice returns and lets it go
+into the vowel. There are no palatalised inventory entries and no /j/ glide segment.
+
+- Soft л is the clear /l/ (the hard one is the dark /ɫ/, which holds the tongue body itself).
+- Soft к г х are marked too; the planner only fronts a velar, whose height is its closure.
+- ч is /tʃ/ and щ a long /ʃ/, always soft. They keep /ʃ/'s lip rounding: the inventory has no
+  alveolo-palatals. ж ш ц are always hard.
+- Voiceless stops and affricates are unaspirated (`Segment.aspirated = false`). Unsaid, the
+  planner keeps English's rule.
+
 ## What is approximate
 
-- **Soft consonants** are the plain consonant and a 25 ms /j/ glide, not a palatalised
-  articulation. л is the exception: dark /ɫ/ when hard, clear /l/ when soft.
-- **щ** is a long /ʃ/ with that glide, and **ч** is /tʃ/ with it; the inventory has no
-  alveolo-palatals.
-- **р** is one tap /ɾ/. The trill /r/ held the tongue tip near the ridge for about 100 ms and the
-  voicing nearly stopped, so рыба was heard as дыба.
+- **Soft consonants**: by ear the softness is weak, and after a soft consonant е can be heard as
+  "иа". An earlier version with its own palatalised entries and a stronger, longer body gesture
+  scored a little better on a Whisper judge (0.37 against 0.41 character error rate on 30
+  phrases, within the judge's noise).
+- **р** is one tap that stops short of a seal, /ɾˠ/ hard (tongue body drawn back) and /ɾʲ/ soft
+  (no body target of its own, palatalized by the planner). It is not a trill: the tongue tip in
+  the model cannot open and close at 25 Hz, and the inventory's /r/ comes out as one 85 ms
+  closure. A sealed tap was heard as /d/ (Whisper wrote дада for правда), an open one drifts
+  towards /l/. Whisper still hears only about a third of the р; a real trill needs the tip's
+  opening modulated in the engine.
+- **Hard л** at the start of an utterance can be heard as р: with the tip raised F2 stays near
+  1.5 kHz whatever the tongue body does (a real one is near 1 kHz).
 - **Sung prepositions**: в, с, к have no vowel and so no note; they start the next word's first
   syllable (and take its voicing). A preposition with a vowel is sung as its own word and keeps
   its spelling's voicing (над ти́хим keeps /d/).

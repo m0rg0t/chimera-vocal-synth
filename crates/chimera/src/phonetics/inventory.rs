@@ -228,6 +228,12 @@ fn base() -> Vec<PhonemeDef> {
         c("ɭ", "retroflex lateral", M::Lateral, Voiced, "retroflex", tg(RETRO_STOP, &[(Lateral, 1.0)]), &[TtX, TtY, TtCurl, Lateral], 0.065),
         c("ʎ", "palatal lateral", M::Lateral, Voiced, "palatal", tg(PAL_STOP, &[(Lateral, 1.0)]), &[TbX, TbY, Lateral], 0.07),
         c("ɾ", "alveolar tap", M::Tap, Voiced, "alveolar", t(ALV_STOP), &TIP, 0.025),
+        // Russian р, one contact that stops short of a seal (ALV_STOP's 9.68 closes for 25 ms and
+        // was heard as /d/; /z/ sits at 9.1). The hard one draws the body back instead of the
+        // alveolars' fronting, whose rising F2 is /d/'s locus; the soft one leaves the body to
+        // the planner's palatalization.
+        c("ɾˠ", "velarised alveolar tap, short of a seal", M::Tap, Voiced, "alveolar", t(&[(TtX, 6.25), (TtY, 9.25), (TbX, 2.6), (TbY, 7.0)]), &TIP, 0.025),
+        c("ɾʲ", "palatalised alveolar tap, short of a seal", M::Tap, Voiced, "alveolar", t(&[(TtX, 6.25), (TtY, 9.25)]), &TIP, 0.025),
         c("ɽ", "retroflex flap", M::Tap, Voiced, "retroflex", t(RETRO_STOP), TIP_CURL, 0.03),
         c("r", "alveolar trill", M::Trill, Voiced, "alveolar", t(&[(TtX, 6.25), (TtY, 9.45)]), &TIP, 0.11),
         c("ʀ", "uvular trill", M::Trill, Voiced, "uvular", t(&[(TbX, 1.55), (TbY, 7.85)]), &BODY, 0.11),
