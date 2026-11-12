@@ -258,6 +258,14 @@ fn tokenize(input: &str, gaps: &mut Gaps) -> Vec<Segment> {
             breathy |= s[i] == BREATHY;
             i += 1;
         }
+        // a consonant the inventory has with its secondary articulation built in (ɾˠ, ɾʲ) is
+        // that entry; the ʲ is left for the mark below, which sets `palatalized` on it
+        if let Some(&mark) = s.get(i).filter(|c| matches!(c, 'ʲ' | 'ˠ')) {
+            if known.contains(format!("{tok}{mark}").as_str()) {
+                tok.push(mark);
+                i += usize::from(mark == 'ˠ');
+            }
+        }
         if !known.contains(tok.as_str()) {
             // whitespace and the delimiters IPA is written between (/phonemic/, [phonetic]) are structure
             if !tok.chars().all(|c| c.is_whitespace() || matches!(c, '/' | '[' | ']')) {

@@ -4,10 +4,10 @@
 //! the first vowel (a guess: mark the stress for anything else). Vowels reduce in speech
 //! (`reduce`), not in singing.
 //!
-//! Approximations: a soft consonant is the plain one plus a 25 ms /j/ glide, not a palatalised
-//! articulation; щ is a long /ʃ/ with that glide; р is one tap. Stress and voicing do not cross
-//! word boundaries, except that a preposition takes its voicing from the word after it
-//! (`word_before`).
+//! A soft consonant is the plain one with `Segment::palatalized`: the planner raises and fronts
+//! the tongue body under it. ч is /tʃ/ and щ a long /ʃ/, both always soft. Voiceless stops are
+//! unaspirated. р is one tap, short of a seal. Stress and voicing do not cross word boundaries,
+//! except that a preposition takes its voicing from the word after it (`word_before`).
 use super::inventory::phoneme;
 use super::syllables::{is_english_onset, syllabify_with, FrontEnd};
 use super::{Segment, Syllable};
@@ -200,22 +200,27 @@ pub fn word_before(input: &str, next: Option<&str>, reduce: bool) -> Vec<Segment
             'б' => "b", 'п' => "p", 'в' => "v", 'ф' => "f", 'г' => "g", 'к' => "k",
             'д' => "d", 'т' => "t", 'з' => "z", 'с' => "s", 'ж' => "ʐ", 'ш' => "ʂ",
             'х' => "x", 'ц' => "ts", 'ч' => "tʃ", 'щ' => "ʃ", 'м' => "m", 'н' => "n",
-            // р is one tap. The trill held the tip near the ridge for ~100 ms and the voicing
-            // all but stopped, so "рыба" was heard as "дыба".
-            'л' => "ɫ", 'р' => "ɾ", 'й' => "j", _ => continue, // ь, ъ
+            // р is one tap that stops short of a seal. The planner's trill never opens between
+            // its beats (one 85 ms closure), and a sealed tap is a short /d/: "правда" was
+            // heard as "дада".
+            'л' => "ɫ", 'р' => "ɾˠ", 'й' => "j", _ => continue, // ь, ъ
         };
         let soft = !ch_as_sh && ("чщ".contains(c) || (!"жшцй".contains(c) && next_c.is_some_and(|x| "яеёиюь".contains(x))));
-        let ipa = if c == 'л' && soft { "l" } else { ipa };
+        // the hard л and р hold the tongue body back themselves: the soft ones are the plain
+        // lateral and the tap with no body target, for the planner to raise
+        let ipa = match (c, soft) { ('л', true) => "l", ('р', true) => "ɾʲ", _ => ipa };
         let mut seg = if long && next_c.is_some_and(vowel) { lengthened(ipa) } else { Segment::new(ipa) };
         long = false;
         if c == 'щ' {
             seg.dur = Some(0.18);
         }
-        out.push(seg);
-        // a timed glide keeps softness audible without adding a vowel (a sung syllable)
-        if soft {
-            out.push(Segment { dur: Some(0.025), ..Segment::new("j") });
+        if c == 'р' && seg.dur.is_none() {
+            seg.dur = Some(0.025);
         }
+        if soft {
+            seg.palatalized = Some(true);
+        }
+        out.push(seg);
     }
 
     // Voicing spreads backwards from an obstruent through the cluster before it (в does not
@@ -230,8 +235,7 @@ pub fn word_before(input: &str, next: Option<&str>, reduce: bool) -> Vec<Segment
         }
     };
     for i in (0..out.len()).rev() {
-        // the softness glide between two consonants doesn't block assimilation
-        let next = out[i + 1..].iter().find(|s| s.ipa != "j").map(|s| s.ipa.as_str());
+        let next = out.get(i + 1).map(|s| s.ipa.as_str());
         let replacement = match next {
             None if after == After::Keep => None,
             None if after == After::Voice => voiced(&out[i].ipa),
@@ -241,6 +245,12 @@ pub fn word_before(input: &str, next: Option<&str>, reduce: bool) -> Vec<Segment
         };
         if let Some(s) = replacement {
             out[i].ipa = s.to_owned();
+        }
+    }
+    // Russian п т к ц ч are unaspirated everywhere (unsaid, the planner uses English's rule)
+    for s in out.iter_mut() {
+        if matches!(s.ipa.as_str(), "p" | "t" | "k" | "ts" | "tʃ") {
+            s.aspirated = Some(false);
         }
     }
     out
@@ -253,10 +263,10 @@ fn lengthened(ipa: &str) -> Segment {
 
 /// Onsets for the lyric syllabifier. Russian singing keeps syllables open, so the next syllable
 /// takes the whole cluster (я-бло-ко, мо-сква́), except that a leading sonorant stays with the
-/// vowel before it (се́р-дце, вой-ска́). A /j/ after a consonant (its softness glide, or the /j/
-/// after ь in се-мья́) goes with that consonant.
+/// vowel before it (се́р-дце, вой-ска́). A /j/ after a consonant (the /j/ after ь in се-мья́)
+/// goes with that consonant.
 pub fn is_onset(cluster: &[Segment]) -> bool {
-    let first = cluster.first().map(|s| s.ipa.as_str());
+    let first = cluster.first().map(|s| s.ipa.trim_end_matches(['ʲ', 'ˠ']));
     let consonants = cluster.iter().enumerate().filter(|(i, s)| *i == 0 || s.ipa != "j").count();
     consonants == 1 || first.is_some_and(|c| !["ɾ", "ɫ", "l", "n", "m", "j"].contains(&c))
 }
